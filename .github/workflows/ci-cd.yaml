@@ -55,5 +55,3 @@ jobs:
             user=__token__
             password=${{ secrets.PYPI_SECRET }}
             repository_url=https://pypi.org/legacy/rustkit
-        run: |
-          python -m twine upload --skip-existing dist/*
