@@ -1,0 +1,2 @@
+class UnwrapError(Exception):
+    pass
