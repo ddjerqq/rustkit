@@ -1,4 +1,4 @@
-name: Deploy to PyPi
+name: Build, Test and Publish the Package
 
 on:
   push:
@@ -21,10 +21,6 @@ jobs:
         python -m pip install .
         python setup.py sdist
 
-    - name: Twine Check
-      run: |
-        python -m twine check dist/*
-
   test:
     runs-on: ubuntu-latest
 
@@ -36,8 +32,8 @@ jobs:
 
       - name: Run PyTests
         run: |
-          pip install -r requirements.txt
-          pytest
+          python -m pip install -r requirements.txt
+          python -m pytest
 
 
   upload:
@@ -49,9 +45,11 @@ jobs:
 
       - uses: actions/checkout@v3
 
-      - name: Upload to PyPi
+      - name: Publish Package
+        if: github.event_name == 'push'
         uses: pypa/gh-action-pypi-publish@master
         with:
-            user=__token__
-            password=${{ secrets.PYPI_SECRET }}
-            repository_url=https://pypi.org/legacy/rustkit
+          password: ${{ secrets.PYPI_SECRET }}
+          skip_existing: true
+          verbose: true
+          print_hash: true
