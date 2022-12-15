@@ -14,5 +14,5 @@ setuptools.setup(
     description="A Rust toolkit library for python which allows you to write rust-like code in python.",
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
-    packages=["rustkit"],
+    packages=["src"],
 )
