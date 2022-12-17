@@ -20,7 +20,7 @@ of a value and take action, always accounting for the [`None`] case.
 ### Examples:
     >>> def divide(numerator: float, denominator: float) -> Option[float]:
     ...     if denominator == 0.0:
-    ...         return NONE
+    ...         return none()
     ...     else:
     ...         return some(numerator / denominator)
 
@@ -146,7 +146,7 @@ If `T` implements [`__eq__`] then [`Option[T]`] will derive its
 less than any [`Some`], and two [`Some`] compare the same way as their
 contained values would in `T`.
 
->>> assert NONE    <  some(0)
+>>> assert none()  <  some(0)
 >>> assert some(1) <= some(1)
 >>> assert some(2) >  some(1)
 >>> assert some(2) >= some(1)
@@ -174,6 +174,7 @@ These methods return the contained value of an [`Option[T]`]:
 from __future__ import annotations
 
 import functools
+from types import NoneType
 from typing import (
     Callable,
     Generic,
@@ -181,6 +182,7 @@ from typing import (
     Tuple,
     TypeVar,
     Optional,
+    Protocol,
 )
 
 from .error import UnwrapError
@@ -188,17 +190,39 @@ from .error import UnwrapError
 if TYPE_CHECKING:
     from .result import Result, ok, err
 
+
+class SupportsRichComparison(Protocol):
+    def __eq__(self, other: object) -> bool:
+        ...
+
+    def __ne__(self, other: object) -> bool:
+        ...
+
+    def __lt__(self, other: object) -> bool:
+        ...
+
+    def __le__(self, other: object) -> bool:
+        ...
+
+    def __gt__(self, other: object) -> bool:
+        ...
+
+    def __ge__(self, other: object) -> bool:
+        ...
+
+
 T = TypeVar("T")
 U = TypeVar("U")
 V = TypeVar("V")
 E = TypeVar("E")
-R = TypeVar("R", bound=Result)
+R = TypeVar("R", bound="Result")
+C = TypeVar("C", bound=SupportsRichComparison)
 
 
 __all__ = (
     "Option",
     "some",
-    "NONE",
+    "none",
 )
 
 
@@ -207,7 +231,7 @@ class Option(Generic[T]):
 
     use [`Option.none`] to create a [`None`] value, and [`Option.some`] to
     create a [`Some`] value. alternatively use the module level function [`some`]
-    and the constant variable [`NONE`] to create a [`Option`].
+    and the constant variable [`none()`] to create a [`Option`].
 
     Type [`Option`] represents an optional value: every [`Option`]
     is either [`Some`] and contains a value, or [`None`], and
@@ -223,20 +247,20 @@ class Option(Generic[T]):
     * Nullable variables
     * Swapping things out of difficult situations
     """
-    __value: T
+    __value: T | None
     __slots__ = ("__value",)
 
     ###########################################################################
     # Creating the option type
     ###########################################################################
 
-    def __init__(self, value: Optional[T] = None, *, __force: bool = False) -> None:
+    def __init__(self, value: Optional[T] = None, *, _force: bool = False) -> None:
         """Try not to directly initialize the option type. There are better ways.
 
         such as: the module level functions [`none`] and [`some`],
         or the class methods [`Option.none`] and [`Option.some`]
         """
-        if not __force:
+        if not _force:
             raise RuntimeError(
                 "you may not create the option type directly. \n"
                 "instead use one of the provided factory methods"
@@ -246,7 +270,7 @@ class Option(Generic[T]):
         """T: value of the Option object"""
 
     @classmethod
-    def from_(cls, value: T | None) -> Option[T]:
+    def from_(cls, value: T | NoneType) -> Option[T]:
         """create an [`Option`] from a value that may be [`None`]
 
         >>> from random import random
@@ -255,7 +279,7 @@ class Option(Generic[T]):
         >>> assert Option[int].from_(f()) == Option.none()
         >>> assert Option[int].from_(f()) == Option.some(1)
         """
-        return cls(value, __force=True)
+        return cls(value, _force=True)
 
     @classmethod
     def some(cls, value: T) -> Option[T]:
@@ -265,7 +289,7 @@ class Option(Generic[T]):
         Examples:
             >>> assert Option.some(1) == Option.from_(1)
         """
-        return cls(value, __force=True)
+        return cls(value, _force=True)
 
     @classmethod
     def none(cls) -> Option[T]:
@@ -274,7 +298,7 @@ class Option(Generic[T]):
         Examples:
             >>> assert Option.none().is_none()
         """
-        return cls(None, __force=True)
+        return cls(None, _force=True)
 
     ###########################################################################
     # Querying the contained values
@@ -287,7 +311,7 @@ class Option(Generic[T]):
             >>> x: Option[int] = some(2)
             >>> assert x.is_some() == True
 
-            >>> x: Option[int] = NONE
+            >>> x: Option[int] = none()
             >>> assert x.is_some() == False
         """
         return self.__value is not None
@@ -302,7 +326,7 @@ class Option(Generic[T]):
             >>> x: Option[int] = some(0)
             >>> assert x.is_some_and(lambda val: val > 1) == False
 
-            >>> x: Option[int] = NONE
+            >>> x: Option[int] = none()
             >>> assert x.is_some_and(lambda val: val > 1) == False
         """
         return func(self.__value) if self.is_some() else False
@@ -314,7 +338,7 @@ class Option(Generic[T]):
             >>> x: Option[int] = some(2)
             >>> assert x.is_none() == False
 
-            >>> x: Option[int] = NONE
+            >>> x: Option[int] = none()
             >>> assert x.is_none() == True
         """
         return not self.is_some()
@@ -334,7 +358,7 @@ class Option(Generic[T]):
             >>> assert x.expect("fruits are healthy") == "value"
 
             >>> # should raise UnwrapError
-            >>> x: Option[str] = NONE
+            >>> x: Option[str] = none()
             >>> x.expect("msg")  # raises UnwrapError with message: `msg`
 
             >>> # Recommended Message Style
@@ -365,7 +389,7 @@ class Option(Generic[T]):
             >>> assert x.unwrap() == "air"
 
             >>> # should raise UnwrapError
-            >>> x: Option[str] = NONE
+            >>> x: Option[str] = none()
             >>> assert x.unwrap() == "air"  # raises UnwrapError
         """
         if self.is_none():
@@ -381,7 +405,7 @@ class Option(Generic[T]):
 
         Examples:
             >>> assert some("car").unwrap_or("bike") == "car"
-            >>> assert NONE.unwrap_or("bike") == "bike"
+            >>> assert none().unwrap_or("bike") == "bike"
         """
         if self.is_none():
             return default
@@ -393,7 +417,7 @@ class Option(Generic[T]):
 
         Examples:
             >>> assert some(4).unwrap_or_else(int) == 4
-            >>> assert NONE.unwrap_or_else(int) == 0
+            >>> assert none().unwrap_or_else(int) == 0
         """
         if self.is_none():
             return func()
@@ -446,7 +470,7 @@ class Option(Generic[T]):
             # that or directly use the function, for a more pythonic way
             >>> assert x.map_or(-1, len) == 3
             >>>
-            >>> x: Option[str] = NONE
+            >>> x: Option[str] = none()
             >>> assert x.map_or(-1, len) == -1
         """
         if self.is_none():
@@ -464,7 +488,7 @@ class Option(Generic[T]):
             >>> x = some("foo")
             >>> assert x.map_or_else(int, len) == 3
 
-            >>> x: Option[str] = NONE
+            >>> x: Option[str] = none()
             >>> assert x.map_or_else(int, len) == 0  # default for calling int()
         """
         if self.is_none():
@@ -484,7 +508,7 @@ class Option(Generic[T]):
             >>> x: Option[str] = some("foo")
             >>> assert x.ok_or(0) == ok("foo")
 
-            >>> x: Option[str] = NONE
+            >>> x: Option[str] = none()
             >>> assert x.ok_or(0) == err(0)
         """
         from .result import ok, err as _err
@@ -504,7 +528,7 @@ class Option(Generic[T]):
             >>> x = some("foo")
             >>> assert x.ok_or_else(int) == ok("foo")
 
-            >>> x: Option[str] = NONE
+            >>> x: Option[str] = none()
             >>> assert x.ok_or_else(int) == err(0)
         """
         from .result import ok, err
@@ -527,19 +551,19 @@ class Option(Generic[T]):
 
         Examples:
             >>> x = some(2)
-            >>> y = NONE
-            >>> assert x.and_(y) == NONE
+            >>> y = none()
+            >>> assert x.and_(y) == none()
 
-            >>> x = NONE
+            >>> x = none()
             >>> y = some("foo")
-            >>> assert x.and_(y) == NONE
+            >>> assert x.and_(y) == none()
 
             >>> x = some(2)
             >>> y = some("foo")
             >>> assert x.and_(y) == some("foo")
 
-            >>> x = NONE
-            >>> y = NONE
+            >>> x = none()
+            >>> y = none()
             >>> assert x.and_(y) == Option()
         """
         if self.is_none():
@@ -597,14 +621,14 @@ class Option(Generic[T]):
             ...         return True
             ...     ...
 
-            >>> assert NONE.filter(is_even) == NONE
-            >>> assert some(3).filter(is_even) == NONE
+            >>> assert none().filter(is_even) == none()
+            >>> assert some(3).filter(is_even) == none()
             >>> assert some(4).filter(is_even) == some(4)
         """
         if self.is_some() and func(self.__value):
             return self
 
-        return self
+        return none()
 
     def or_(self: Option[T], rhs: Option[U]) -> Option[T] | Option[U]:
         """Returns the option if it contains a value, otherwise returns `rhs`.
@@ -614,10 +638,10 @@ class Option(Generic[T]):
 
         Examples:
             >>> x = some(2)
-            >>> y = NONE
+            >>> y = none()
             >>> assert x.or_(y) == some(2)
 
-            >>> x = NONE
+            >>> x = none()
             >>> y = some(100)
             >>> assert x.or_(y) == some(100)
 
@@ -625,9 +649,9 @@ class Option(Generic[T]):
             >>> y = some(100)
             >>> assert x.or_(y) == some(2)
 
-            >>> x = NONE
-            >>> y = NONE
-            >>> assert x.or_(y) == NONE
+            >>> x = none()
+            >>> y = none()
+            >>> assert x.or_(y) == none()
         """
         if self.is_none():
             return rhs
@@ -646,8 +670,8 @@ class Option(Generic[T]):
             >>> vikings = lambda: some("vikings")
 
             >>> assert some("barbarians").or_else(vikings) == some("barbarians")
-            >>> assert NONE.or_else(vikings) == some("vikings")
-            >>> assert NONE.or_else(nobody) == NONE
+            >>> assert none().or_else(vikings) == some("vikings")
+            >>> assert none().or_else(nobody) == none()
         """
         if self.is_none():
             return func()
@@ -669,32 +693,32 @@ class Option(Generic[T]):
 
         Examples:
             >>> x = some(2)
-            >>> y = NONE
+            >>> y = none()
             >>> assert x.xor(y) == some(2)
 
-            >>> x = NONE
+            >>> x = none()
             >>> y = some(2)
             >>> assert x.xor(y) == some(2)
 
             >>> x = some(2)
             >>> y = some(2)
-            >>> assert x.xor(y) == NONE
+            >>> assert x.xor(y) == none()
 
-            >>> x = NONE
-            >>> y = NONE
-            >>> assert x.xor(y) == NONE
+            >>> x = none()
+            >>> y = none()
+            >>> assert x.xor(y) == none()
         """
 
         if self.is_none():
             if rhs.is_none():
-                return NONE
+                return none()
 
             return rhs
 
         if rhs.is_none():
             return self
 
-        return NONE
+        return none()
 
     def __xor__(self: Option[T], rhs: Option[T]) -> Option[T]:
         return self.xor(rhs)
@@ -703,23 +727,116 @@ class Option(Generic[T]):
     # Comparison operators
     ###########################################################################
 
-    def __eq__(self: Option[T], rhs: Option[T]) -> bool:
-        return self.__value == rhs.__value
+    def __eq__(self: Option[T], rhs: Option[T] | NoneType) -> bool:
+        if isinstance(rhs, Option):
+            # rhs is an option
+            if self.is_none() and rhs.is_none():
+                # both are none
+                return True
+            elif (self.is_some() and rhs.is_none()) or (self.is_none() and rhs.is_some()):
+                # either is none
+                return False
+            else:
+                # both are some
+                # compare values
+                return self.__value == rhs.__value
 
-    def __ne__(self: Option[T], rhs: Option[T]) -> bool:
-        return self.__value != rhs.__value
+        if rhs is None:
+            return self.is_none()
 
-    def __lt__(self: Option[T], rhs: Option[T]) -> bool:
-        return self.__value < rhs.__value
+        raise TypeError(f"Cannot compare Option with {rhs.__class__.__name__}")
 
-    def __le__(self: Option[T], rhs: Option[T]) -> bool:
-        return self.__value <= rhs.__value
+    def __ne__(self: Option[T], rhs: Option[T] | NoneType) -> bool:
+        return not self.__eq__(rhs)
 
-    def __gt__(self: Option[T], rhs: Option[T]) -> bool:
-        return self.__value > rhs.__value
-
-    def __ge__(self: Option[T], rhs: Option[T]) -> bool:
-        return self.__value >= rhs.__value
+    # def __lt__(self: Option[C], rhs: Option[C] | NoneType) -> bool:
+    #     if isinstance(rhs, Option):
+    #         # rhs is an option
+    #         if self.is_none() and rhs.is_none():
+    #             # N < N
+    #             return False
+    #         elif self.is_none() and rhs.is_some():
+    #             # N < S
+    #             return True
+    #         elif self.is_some() and rhs.is_none():
+    #             # S !< N
+    #             return False
+    #         else:
+    #             # both are some
+    #             # compare values
+    #             return self.__value < rhs.__value
+    #
+    #     if rhs is None:
+    #         return False
+    #
+    #     raise TypeError(f"Cannot compare Option with {rhs.__class__.__name__}")
+    #
+    # def __le__(self: Option[C], rhs: Option[C] | NoneType) -> bool:
+    #     if isinstance(rhs, Option):
+    #         # rhs is an option
+    #         if self.is_none() and rhs.is_none():
+    #             # N <= N
+    #             return True
+    #         elif self.is_none() and rhs.is_some():
+    #             # N <= S
+    #             return True
+    #         elif self.is_some() and rhs.is_none():
+    #             # S !<= N
+    #             return False
+    #         else:
+    #             # both are some
+    #             # compare values
+    #             return self.__value <= rhs.__value
+    #
+    #     if rhs is None:
+    #         return self.is_none()
+    #
+    #     raise TypeError(f"Cannot compare Option with {rhs.__class__.__name__}")
+    #
+    # def __gt__(self: Option[C], rhs: Option[C] | NoneType) -> bool:
+    #     if isinstance(rhs, Option):
+    #         # rhs is an option
+    #         if self.is_none() and rhs.is_none():
+    #             # N > N
+    #             return False
+    #         elif self.is_none() and rhs.is_some():
+    #             # N > S
+    #             return False
+    #         elif self.is_some() and rhs.is_none():
+    #             # S > N
+    #             return True
+    #         else:
+    #             # both are some
+    #             # compare values
+    #             return self.__value > rhs.__value
+    #
+    #     if rhs is None:
+    #         # S > N
+    #         return self.is_some()
+    #
+    #     raise TypeError(f"Cannot compare Option with {rhs.__class__.__name__}")
+    #
+    # def __ge__(self: Option[C], rhs: Option[C] | NoneType) -> bool:
+    #     if isinstance(rhs, Option):
+    #         # rhs is an option
+    #         if self.is_none() and rhs.is_none():
+    #             # N >= N
+    #             return True
+    #         elif self.is_none() and rhs.is_some():
+    #             # N >= S
+    #             return False
+    #         elif self.is_some() and rhs.is_none():
+    #             # S >= N
+    #             return True
+    #         else:
+    #             # both are some
+    #             # compare values
+    #             return self.__value >= rhs.__value
+    #
+    #     if rhs is None:
+    #         return True
+    #
+    #     raise TypeError(f"Cannot compare Option with {rhs.__class__.__name__}")
 
     ###########################################################################
     # Entry-like operations to insert a value and return a reference
@@ -733,7 +850,7 @@ class Option(Generic[T]):
         the option already contains [`Some`].
 
         Example
-            >>> a = NONE
+            >>> a = none()
             >>> val = a.insert(1)
             >>> assert val == 1
             >>> assert a.unwrap() == 1
@@ -751,11 +868,9 @@ class Option(Generic[T]):
         See also [`Option.insert`], which updates the value even if the option already contains [`Some`].
 
         Examples:
-            >>> a = NONE
-            >>> assert a.get_or_insert(5) == 5
+            >>> assert none().get_or_insert(5) == 5
 
-            >>> b = some(10)
-            >>> assert b.get_or_insert(5) == 10
+            >>> assert some(10).get_or_insert(5) == 10
         """
         if self.is_none():
             self.__value = value
@@ -767,9 +882,7 @@ class Option(Generic[T]):
         then returns the contained value.
 
         Examples:
-            >>> x = NONE
-
-            >>> y = x.get_or_insert_with(int)
+            >>> y = none().get_or_insert_with(int)
             >>> assert y == 0
         """
         if self.is_none():
@@ -787,13 +900,13 @@ class Option(Generic[T]):
         Examples:
             >>> x = some(2)
             >>> y = x.take()
-            >>> assert x == NONE
+            >>> assert x == none()
             >>> assert y == some(2)
 
-            >>> x = NONE
+            >>> x = none()
             >>> y = x.take()
-            >>> assert x == NONE
-            >>> assert y == NONE
+            >>> assert x == none()
+            >>> assert y == none()
         """
         if self.is_none():
             return self
@@ -812,16 +925,13 @@ class Option(Generic[T]):
             >>> assert x == some(5)
             >>> assert old == some(2)
 
-            >>> x = NONE
+            >>> x = none()
             >>> old = x.replace(3)
             >>> assert x == some(3)
-            >>> assert old == NONE
+            >>> assert old == none()
         """
-        if self.is_none():
-            return self
-
         self.__value, old_value = value, self.__value
-        return Option.some(old_value)
+        return Option.some(old_value) if old_value is not None else Option.none()
 
     def contains(self: Option[T], value: T) -> bool:
         """Returns `True` if the option contains a value equal to the given value.
@@ -833,7 +943,7 @@ class Option(Generic[T]):
             >>> assert 2 in x
             >>> assert 3 not in x
 
-            >>> x = NONE
+            >>> x = none()
             >>> assert not x.contains(0)
             >>> assert 0 not in x
         """
@@ -843,24 +953,24 @@ class Option(Generic[T]):
         """Zips `self` with another `Option`.
 
         If `self` is `Some(T)` and `other` is `Some(U)`, this method returns `Some((T, U))`. Otherwise,
-        `NONE` is returned.
+        `none()` is returned.
 
         Examples:
             >>> x = some(1)
             >>> y = some("hi")
-            >>> z = NONE
+            >>> z = none()
             >>> assert x.zip(y) == some((1, "hi"))
-            >>> assert x.zip(z) == NONE
+            >>> assert x.zip(z) == none()
         """
         if self.is_some() and option.is_some():
             return Option.some((self.__value, option.__value))
 
-        return self
+        return Option.none()
 
     def zip_with(self: Option[T], rhs: Option[U], func: Callable[[T, U], V]) -> Option[V]:
         """Zips `self` and another `Option` with function `func`.
         If `self` is `Some(T)` and `rhs` is `Some(T)`, this method returns `Some(func(T, U))`.
-        Otherwise, `NONE` is returned.
+        Otherwise, `none()` is returned.
 
         Examples:
             >>> class Point:
@@ -872,12 +982,12 @@ class Option(Generic[T]):
             >>> y = some(42.7)
 
             >>> assert x.zip_with(y, Point) == some(Point(17.5, 42.7))
-            >>> assert x.zip_with(NONE, Point) == NONE
+            >>> assert x.zip_with(none(), Point) == none()
         """
         if self.is_some() and rhs.is_some():
-            return Option(func(self.__value, rhs.__value))
+            return Option.some(func(self.__value, rhs.__value))
 
-        return self
+        return Option.none()
 
     def transpose(self: Option[Result[T, E]]) -> Result[Option[T], E]:
         """Transposes an [`Option`] of a [`Result`] into a [`Result`] of an [`Option`].
@@ -893,15 +1003,21 @@ class Option(Generic[T]):
             >>> y: Option[Result[int, Exception]] = some(ok(5))
             >>> assert x == y.transpose()
         """
-        from .result import ok, err
+        from .result import Result, ok, err
+
+        if not isinstance(self.__value, (Result, NoneType)):
+            raise TypeError("Option must contain a Result when using transpose")
+
+        if self.is_some_and(Result.is_ok):
+            # Safety: we are sure that self.__value is not err because we checked it above.
+            return ok(some(self.__value.unwrap()))
+
+        if self.is_some_and(Result.is_err):
+            # Safety: we are sure that self.__value is not ok because we checked it above.
+            return err(self.__value.unwrap_err())
 
         if self.is_none():
-            return ok(NONE)
-
-        if self.__value.is_ok():
-            return ok(Option.some(self.__value))
-
-        return err(self.__value)
+            return ok(none())
 
     def flatten(self: Option[Option[T]]) -> Option[T]:
         """Converts from `Option[Option[T]]` to `Option[T]`.
@@ -910,11 +1026,11 @@ class Option(Generic[T]):
         >>> x = some(some(6))
         >>> assert x.flatten() == some(6)
 
-        >>> x = some(NONE)
-        >>> assert x.flatten() == NONE
+        >>> x = some(none())
+        >>> assert x.flatten() == none()
 
-        >>> x = NONE
-        >>> assert x.flatten() == NONE
+        >>> x = none()
+        >>> assert x.flatten() == none()
 
         >>> # Flattening only removes one level of nesting at a time:
 
@@ -964,5 +1080,14 @@ def some(value: T) -> Option[T]:
     return Option.some(value)
 
 
-NONE = Option.none()
-"""Option[...]: shortcut to create a none variant"""
+def none() -> Option[T]:
+    """shortcut to create a some variant
+
+    Examples:
+        >>> x = none()
+        >>> assert x.is_none()
+
+        >>> x = none()
+        >>> assert x.is_none()
+    """
+    return Option.none()

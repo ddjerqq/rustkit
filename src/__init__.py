@@ -28,7 +28,7 @@ as of now, only the following features are implemented:
 """
 
 from .error import UnwrapError
-from .option import Option, some, NONE
+from .option import Option, some, none
 from .result import Result, ok, err
 
 
@@ -36,7 +36,7 @@ __all__ = (
     "UnwrapError",
     "Option",
     "some",
-    "NONE",
+    "none",
     "Result",
     "ok",
     "err",

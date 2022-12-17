@@ -163,7 +163,7 @@ from typing import (
 from .error import UnwrapError
 
 if TYPE_CHECKING:
-    from .option import Option, some, NONE
+    from .option import Option, some, none
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -195,10 +195,10 @@ class Result(Generic[T, E]):
     # Creating the Result objects
     ###########################################################################
 
-    def __init__(self: Result[T, E], is_ok: bool, value: T, *, __force: bool = False) -> None:
+    def __init__(self: Result[T, E], is_ok: bool, value: T, *, _force: bool = False) -> None:
         """DO NOT DIRECTLY INITIALIZE THE RESULT TYPE!!!
         """
-        if not __force:
+        if not _force:
             raise RuntimeError(
                 "you may not create the result type directly. \n"
                 "instead use one of the provided factory methods"
@@ -255,7 +255,7 @@ class Result(Generic[T, E]):
             except Exception as e:
                 return err(e)
 
-        raise TypeError("func must be a callable or a coroutine")
+        raise TypeError(f"func must be a callable or a coroutine, not {func.__class__.__name__}")
 
     ###########################################################################
     # Querying the contained values
@@ -408,8 +408,8 @@ class Result(Generic[T, E]):
             >>> x = ok(2)
             >>> assert x.ok() == some(2)
         """
-        from option import some, NONE
-        return some(self.__value) if self.is_ok() else NONE
+        from .option import some, none
+        return some(self.__value) if self.is_ok() else none()
 
     def err(self: Result[T, E]) -> Option[E]:
         """Returns [`Some(E)`] if the result is [`Err(E)`], otherwise [`None`].
@@ -418,8 +418,8 @@ class Result(Generic[T, E]):
             >>> x = err("Nothing here")
             >>> assert x.err() == some("Nothing here")
         """
-        from option import some, NONE
-        return NONE if self.is_ok() else some(self.__value)
+        from .option import some, none
+        return none() if self.is_ok() else some(self.__value)
 
     def expect(self: Result[T, E], msg: str) -> T:
         """Unwraps a result, yielding the content of an [`Ok(T)`.]
@@ -678,22 +678,67 @@ class Result(Generic[T, E]):
     ###########################################################################
 
     def __eq__(self: Result[T, E], rhs: Result[T, E]) -> bool:
-        return self.__value == rhs.__value
+        if isinstance(rhs, Result):
+            # rhs is a Result
+            if (self.is_err() and rhs.is_err()) or (self.is_ok() and rhs.is_ok()):
+                # both are err or both are ok
+                return self.__value == rhs.__value
+            elif (self.is_ok() and rhs.is_err()) or (self.is_err() and rhs.is_ok()):
+                # either is error
+                return False
+
+        raise TypeError(f"Cannot compare Result with {rhs.__class__.__name__}")
 
     def __ne__(self: Result[T, E], rhs: Result[T, E]) -> bool:
-        return self.__value != rhs.__value
+        return not self.__eq__(rhs)
 
-    def __lt__(self: Result[T, E], rhs: Result[T, E]) -> bool:
-        return self.__value < rhs.__value
-
-    def __le__(self: Result[T, E], rhs: Result[T, E]) -> bool:
-        return self.__value <= rhs.__value
-
-    def __gt__(self: Result[T, E], rhs: Result[T, E]) -> bool:
-        return self.__value > rhs.__value
-
-    def __ge__(self: Result[T, E], rhs: Result[T, E]) -> bool:
-        return self.__value >= rhs.__value
+    # def __lt__(self: Result[T, E], rhs: Result[T, E]) -> bool:
+    #     if isinstance(rhs, Result):
+    #         # rhs is a Result
+    #         if (self.is_err() and rhs.is_err()) or (self.is_ok() and rhs.is_ok()):
+    #             # both are err or both are ok
+    #             return self.__value < rhs.__value
+    #         elif (self.is_ok() and rhs.is_err()) or (self.is_err() and rhs.is_ok()):
+    #             # either is error
+    #             return False
+    #
+    #     raise TypeError(f"Cannot compare Result with {rhs.__class__.__name__}")
+    #
+    # def __le__(self: Result[T, E], rhs: Result[T, E]) -> bool:
+    #     if isinstance(rhs, Result):
+    #         # rhs is a Result
+    #         if (self.is_err() and rhs.is_err()) or (self.is_ok() and rhs.is_ok()):
+    #             # both are err or both are ok
+    #             return self.__value <= rhs.__value
+    #         elif (self.is_ok() and rhs.is_err()) or (self.is_err() and rhs.is_ok()):
+    #             # either is error
+    #             return False
+    #
+    #     raise TypeError(f"Cannot compare Result with {rhs.__class__.__name__}")
+    #
+    # def __gt__(self: Result[T, E], rhs: Result[T, E]) -> bool:
+    #     if isinstance(rhs, Result):
+    #         # rhs is a Result
+    #         if (self.is_err() and rhs.is_err()) or (self.is_ok() and rhs.is_ok()):
+    #             # both are err or both are ok
+    #             return self.__value > rhs.__value
+    #         elif (self.is_ok() and rhs.is_err()) or (self.is_err() and rhs.is_ok()):
+    #             # either is error
+    #             return False
+    #
+    #     raise TypeError(f"Cannot compare Result with {rhs.__class__.__name__}")
+    #
+    # def __ge__(self: Result[T, E], rhs: Result[T, E]) -> bool:
+    #     if isinstance(rhs, Result):
+    #         # rhs is a Result
+    #         if (self.is_err() and rhs.is_err()) or (self.is_ok() and rhs.is_ok()):
+    #             # both are err or both are ok
+    #             return self.__value >= rhs.__value
+    #         elif (self.is_ok() and rhs.is_err()) or (self.is_err() and rhs.is_ok()):
+    #             # either is error
+    #             return False
+    #
+    #     raise TypeError(f"Cannot compare Result with {rhs.__class__.__name__}")
 
     ###########################################################################
     # Miscellaneous
@@ -726,18 +771,30 @@ class Result(Generic[T, E]):
 
         Examples:
             >>> assert ok(some(2)).transpose() == some(ok(2))
-            >>> assert ok(NONE).transpose() == NONE
-            >>> assert err("Nothing here").transpose() == some(err("Nothing here"))
+            >>> assert ok(none()).transpose() == none()
         """
-        from .option import some, NONE
+        from .option import Option, some, none
+        self.__value: Option[T]
 
-        if self.is_ok():
+        # Ok(Some(x)) => Some(Ok(x))
+        if self.is_ok_and(lambda val: isinstance(val, Option) and val.is_some()):
+            # Safety: it's safe to unwrap because we checked that the value is some above
+            return some(ok(self.__value.unwrap()))
+
+        # Ok(None) => None
+        if self.is_ok_and(lambda val: isinstance(val, Option) and val.is_none()):
+            return none()
+
+        if self.is_err_and(lambda val: isinstance(val, Option)):
             if self.__value.is_some():
-                return some(ok(self.__value.unwrap()))
+                # Err(Some(x)) => Some(Err(x))
+                return some(err(self.__value.unwrap()))
 
-            return NONE
+            # Err(None) => None
+            return none()
 
-        return some(err(self.__value))
+        raise TypeError("Result must contain an Option when using transpose")
+
 
     def flatten(self: Result[Result[T, E], E]) -> Result[T, E]:
         """Flattens a nested `Result` into a single `Result`.
@@ -782,7 +839,7 @@ def ok(value: T) -> Result[T, E]:
         >>> assert ok(2) != ok(3)
         >>> assert ok(2) != err("Nothing here")
     """
-    return Result(True, value, __force=True)
+    return Result(True, value, _force=True)
 
 
 def err(value: E) -> Result[T, E]:
@@ -793,4 +850,4 @@ def err(value: E) -> Result[T, E]:
         >>> assert err("Nothing here") != err("Nothing")
         >>> assert err("Nothing here") != ok(2)
     """
-    return Result(False, value, __force=True)
+    return Result(False, value, _force=True)
