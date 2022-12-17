@@ -46,7 +46,7 @@ jobs:
       - name: Publish Package
 
         env:
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+          PYPI_TOKEN: ${{ secrets.PYPI_SECRET }}
 
         run: |
           python -m pip install --upgrade pip
@@ -54,4 +54,4 @@ jobs:
           python -m pip install .
           python setup.py sdist
           python -m twine check dist/*
-          python -m twine upload --skip-existing dist/* -u __token__ -p $PYPI_TOKEN
+          python -m twine upload --verbose --skip-existing dist/* -u __token__ -p $PYPI_TOKEN
