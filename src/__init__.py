@@ -13,7 +13,7 @@ Example usage:
     >>> # Rust-like optionals
     >>> assert some(10).unwrap() == 10
     >>> assert some(10).unwrap_or(20) == 10
-    >>> assert Option.from_(None) == NONE
+    >>> assert Option.from_(None) == none()
 
     >>> # Rust-like results, and error handlers
     >>> assert ok(10).unwrap() == 10
@@ -42,4 +42,4 @@ __all__ = (
     "err",
 )
 
-__version__ = "0.0.1"
+__version__ = 0, 0, 1

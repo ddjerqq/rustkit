@@ -1,11 +1,12 @@
 import setuptools
+from src import __version__
 
 with open("README.md", "r") as f:
     LONG_DESCRIPTION = f.read()
 
 setuptools.setup(
     name="rustkit",
-    version="0.0.1",
+    version=".".join(map(str, __version__)),
     license="GNU",
     author="ddjerqq",
     author_email="ddjerqq@gmail.com",
