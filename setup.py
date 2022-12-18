@@ -1,5 +1,5 @@
 import setuptools
-from src import __version__
+from rustkit import __version__
 
 with open("README.md", "r") as f:
     LONG_DESCRIPTION = f.read()
@@ -15,5 +15,5 @@ setuptools.setup(
     description="A Rust toolkit library for python which allows you to write rust-like code in python.",
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
-    packages=["src"],
+    packages=["rustkit"],
 )

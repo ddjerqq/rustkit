@@ -1,6 +1,6 @@
 import pytest
 
-from src import *
+from rustkit import *
 
 # test from_
 # test ok
